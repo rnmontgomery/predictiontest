@@ -10,13 +10,13 @@
 # 3) Weights function - DONE
 # 4) Prediction results
 # 5) Plotting function
+# 6) Add application
 
 # 6) OLS function
 # 7) GLS function
 # 8) Hotelling's T^2?
 # 9)
 
-what
 
 
 # # Two different prediction test functions
@@ -323,32 +323,32 @@ colnames(data)
 
 # 1 is up, 2 is down, 3 is diff
 #for type (wilcoxon or normal) 1 is wilcoxon, 2 is normal (wilcoxon by default if not specified)
-predictions <- matrix(c("v1", 1, ".",
-                        "v2", 2, ".",
-                        "v3", 3, 1,
-                        "v4", 3, 2,
-                        "v5", 3, 1,
-                        "v6", 2, "."),byrow = TRUE, ncol = 3)
+#Group variable named group, or ID variable named id
+predictions <- matrix(c("v1", 1,
+                        "v2", 2,
+                        "v3", 3,
+                        "v4", 3,
+                        "v5", 3,
+                        "v6", 2),byrow = TRUE, ncol = 2)
 
 
 
-prediction.results <- function(data, direction, variables, type = "group", groupvar, timevar, phi_0 = 0.50){
+prediction.results <- function(data, direction, bound = "wilcoxon", variables, type = "group", 
+                               gtvar,  phi_0 = 0.50){
   
   
   dataset <- data
-  levels <- unique(factor(dataset[,groupvar]))
-  
-  reference <- factor(dataset$time)[1]
-  
+
   if (type = "group"){
+    levels <- unique(factor(dataset[,gtvar]))
     
     dataset %>%
       group_by(group) %>%
-        summarise_at(all_of(variables), funs(mean(.,na.rm = TRUE))) -> groupmeans
+        summarise_at(all_of(variables), mean, na.rm = TRUE) -> groupmeans
     
-    groupmeans <- groupmeans[order(groupmeans$group),]
-    results <- colMeans(groupmeans[,c(variables)])
-  
+    groupmeans <- groupmeans[order(groupmeans$group),] # Prediction calculate as Grp1-Grp2
+    
+    results <- groupmeans[1,variables] - groupmeans[2,variables]
     if (direction = "up"){
       for ( z in 1:length(variables)){
         results[c(variables[z])] <- ifelse(results[c(variables[z])] > 0,1,0 )
@@ -359,60 +359,75 @@ prediction.results <- function(data, direction, variables, type = "group", group
       }
     }else if (direction = "mixed"){
       
-      
-      results
-      predictions
-      j <- 3
+      for ( j in 1:dim(predictions)[1])
+      {
       
       rules <- predictions[predictions[,1] ==names(results[j]),]
       if (as.numeric(rules[2]) == 1){
         
         results[j] <- ifelse(results[j] > 0, 1, 0)
         
-      }else if (as.numeric(rules[2]) == 1){
+      }else if (as.numeric(rules[2]) == 2){
         
         results[j] <- ifelse(results[j] < 0, 1, 0)
       
       }else if(as.numeric(rules[2]) == 3){
         
-        if (length(rules)<3)
+        if (bound == "wilcoxon")
         {
+          split <- dataset[,c(gtvar,names(results[j]))]
+          split1 <- split[split[,gtvar]==as.numeric(levels[1]),]
+          split2 <- split[split[,gtvar]==as.numeric(levels[2]),]
           
-          split <- dataset[,c(groupvar,names(results[j]))]
-          split1 <- split[split[,groupvar]==as.numeric(levels[1]),]
-          split2 <- split[split[,groupvar]==as.numeric(levels[2]),]
+          results[j] <- ifelse(wilcox.test(split1[,names(results[j])],split2[,names(results[j])])$p.value <
+                                 phi_0, 1,0)
           
-          ifelse(wilcox.test(split1[,names(results[j])],split2[,names(results[j])])$p.value < phi_0, 1,0)
           
-        } else if (length(rules)==3){
+        } else if (bound == "normal")
+        {
+          split <- dataset[,c(gtvar,names(results[j]))]
+          split1 <- split[split[,gtvar]==as.numeric(levels[1]),]
+          split2 <- split[split[,gtvar]==as.numeric(levels[2]),]
           
-          if(as.numeric(rules[3]) == 1){
-          
-          split <- dataset[,c(groupvar,names(results[j]))]
-          split1 <- split[split[,groupvar]==as.numeric(levels[1]),]
-          split2 <- split[split[,groupvar]==as.numeric(levels[2]),]
-          
-          ifelse(wilcox.test(split1[,names(results[j])],split2[,names(results[j])])$p.value < phi_0, 1,0)
-          
-          } else {
-            
-            split <- dataset[,c(groupvar,names(results[j]))]
-            split1 <- split[split[,groupvar]==as.numeric(levels[1]),]
-            split2 <- split[split[,groupvar]==as.numeric(levels[2]),]
-            
-            obdiff <- mean(split1[,names(results[j])]) - mean(split2[,names(results[j])])
-            ifelse(obdiff >  qnorm(1-(phi_0/2)) | obdiff < qnorm(phi_0/2), 1, 0)          
-          }
+          obdiff <- mean(split1[,names(results[j])]) - mean(split2[,names(results[j])])
+          results[j] <- ifelse(obdiff >  qnorm(1-(phi_0/2)) | obdiff < qnorm(phi_0/2), 1, 0)   
         }
+      }
       }
     } 
   }else if (type = "prepost"){
+    reference <- factor(dataset$time)[1]
+    
+    
+    mutatefunc <- function (column) (
+      dataset %>%
+        arrange(id) %>%
+        group_by(id) %>%
+        mutate( !!paste0('diff.',as.name(column)) :=  !!as.name(column)-first(!!as.name(column))  ) -> dataset
+      
+    )
+    
+    tes <- function (var){
+      var - lag(var)
+    }
+    
+    
+    dataset %>%
+      group_by(id) %>%
+      arrange(id) %>%
+      summarise_at(all_of(variables), tes, na.rm = TRUE) ->zz
+    
+      mutate(idiff = )
+    
 
   }
 
+  
+  outresults <- list(results)
+  return(outresults)
+
 }
 
-#hi
 
 
 
