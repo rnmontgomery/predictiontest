@@ -6,9 +6,11 @@
 
 # Function list:
 # 1) Original exact/asymptotic prediction-test - DONE
+      # printing function - DONE
 # 2) Prediction bootstrap - DONE
 # 3) Weights function - DONE
 # 4) Prediction results - DONE
+      # printing function
 # 5) Plotting function
 # 6) Add application
 
@@ -43,11 +45,13 @@ library(robustbase)
   # exact  - true or false, default FALSE, and only available for m < 25
 
 weights <- W
-results <- D50
+results <- prediction.results(data1, variables = variables,direction = "up", type = "prepost", gtvar = "time")[1]
+
 
 prediction.test <- function(weights, results, nullphi = 0.50, alpha = 0.05, exact = TRUE){
   
   ntests <- length(weights)
+  results <- unlist(results)
   teststat <- weights%*%results
   correct <- sum(results)
   
@@ -88,7 +92,7 @@ prediction.test <- function(weights, results, nullphi = 0.50, alpha = 0.05, exac
   
 }
 
-prediction.test(weights, D50, exact = TRUE) 
+pred1 <- prediction.test(weights,results= D50, exact = TRUE) 
 
 print.prediction.test <- function(x){
   cat("\n\t\tResults for the Prediction Test")
@@ -105,7 +109,7 @@ print.prediction.test <- function(x){
       "\t p.value:", paste(format(x$p.value, digits = 4)))
 }
 
-print.prediction.test( prediction.test(weights, D50, exact = FALSE) )
+print.prediction.test( pred1)
 
 
 
@@ -336,7 +340,7 @@ gtvar <- "time"
 bound = "normal"
 
 
-prediction.results(data1, variables = variables,direction = "up", type = "prepost", gtvar = "time")
+prediction.results(data1, variables = variables,direction = "up", type = "prepost", gtvar = "time")[1]
 
 prediction.results <- function(dataset, direction, bound = "wilcoxon", variables, type = "group", 
                                gtvar,  phi_0 = 0.50, predictions, location = "mean"){
@@ -472,6 +476,26 @@ prediction.results <- function(dataset, direction, bound = "wilcoxon", variables
   return(outresults)
 
 }
+
+
+# Print results function ----------------------------------------------
+
+print.prediction.test <- function(x){
+  cat("\n\t\tResults for the Prediction Test")
+  
+  cat("\n\nOf the", paste(x$m), " endpoints of interest,", paste(x$correct), "were correctly predicted.")
+  if (x$type == 1){
+    cat("\nCalculated using the normal approximation:")
+  } else if (x$type == 2){
+    cat("\nCalculated using the exact distribution:")
+  }
+  cat("\n----------------------------------------------------------------")
+  cat("\nTm:", paste(format(x$statistic,digits=4)), 
+      "\t Null hypothesized", paste("\U03D5:"), paste(format(x$null.value)),
+      "\t p.value:", paste(format(x$p.value, digits = 4)))
+}
+
+print.prediction.test( pred1)
 
 
 
