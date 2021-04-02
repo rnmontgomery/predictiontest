@@ -8,7 +8,7 @@
 # 1) Original exact/asymptotic prediction-test - DONE
 # 2) Prediction bootstrap - DONE
 # 3) Weights function - DONE
-# 4) Prediction results
+# 4) Prediction results - DONE
 # 5) Plotting function
 # 6) Add application
 
@@ -131,9 +131,7 @@ prediction.bootstrap <- function(weights, results, nullphi = 0.50, alpha = 0.05,
     for (g in 1:sims)
     {
       boots[g,] <- ifelse((rbinom(ntests,1,nullphi))%*%weights >= teststat,1,0)
-      
     }
-    
     pval <- mean(boots)
 
   } else{
@@ -222,8 +220,7 @@ prediction.weights(data = data, variables = variables, type = "group", time = "g
 
 
 prediction.weights <- function(data, variables,id, timevar, type = "group", cor = "pearson"){
-  
-  
+
   if(type == "group")
   {
     dataset <- data
@@ -245,9 +242,6 @@ prediction.weights <- function(data, variables,id, timevar, type = "group", cor 
       
       stop("Expecting two values for timevar.")
     }
-    
-   
-    
     mutatefunc <- function (column) (
       dataset %>%
         arrange(id) %>%
@@ -264,8 +258,6 @@ prediction.weights <- function(data, variables,id, timevar, type = "group", cor 
   
     samplec <- cor( dataset[,c(paste0( "diff.",variables)) ], method = cor)
     weights <- rowSums(samplec^2)
-  
-  
 
   }
   outweight <- list(weights)
@@ -277,7 +269,7 @@ prediction.weights <- function(data, variables,id, timevar, type = "group", cor 
 # Prediction results function ------------------------------------
 # Inputs
 
-
+# FOR TESTING
 #Group example
 id <- 1:20
 group <- c(rep(1,10), rep(2,10))
@@ -298,6 +290,7 @@ groupvar <- "group"
 
 
 
+
 id <- c(1:10,1:10)
 time <- (c(rep(1,10), rep(2,10)))
 v1 <- rnorm(20,0,1)
@@ -314,12 +307,11 @@ variables <- c("v1", "v2" ,"v3", "v4", "v5","v6")
 colnames(data)
 
 
-
 # Either all Up, down, different or supply a matrix/data frame with two columns 
 # (the variable name, and the prediction)
 
 # What group (or time) is up or down will depend on the order of the variable, change order to change reference
-# default second factor level - first factor level (reasoning pre-post data)
+# default second factor level - first factor level (reasoning pre-post data) 
 
 # 1 is up, 2 is down, 3 is diff
 #for type (wilcoxon or normal) 1 is wilcoxon, 2 is normal (wilcoxon by default if not specified)
@@ -333,13 +325,18 @@ predictions <- matrix(c("v1", 1,
 
 
 
-prediction.results <- function(data, direction, bound = "wilcoxon", variables, type = "group", 
-                               gtvar,  phi_0 = 0.50){
-  
-  
-  dataset <- data
+#testing:
+bound = "wilcoxon"
+type = "prepost"
+direction <- "mixed"
+gtvar <- "time"
+bound = "normal"
 
-  if (type = "group"){
+prediction.results <- function(dataset, direction, bound = "wilcoxon", variables, type = "group", 
+                               gtvar,  phi_0 = 0.50, predictions){
+  
+
+  if (type == "group"){
     levels <- unique(factor(dataset[,gtvar]))
     
     dataset %>%
@@ -349,15 +346,15 @@ prediction.results <- function(data, direction, bound = "wilcoxon", variables, t
     groupmeans <- groupmeans[order(groupmeans$group),] # Prediction calculate as Grp1-Grp2
     
     results <- groupmeans[1,variables] - groupmeans[2,variables]
-    if (direction = "up"){
+    if (direction == "up"){
       for ( z in 1:length(variables)){
         results[c(variables[z])] <- ifelse(results[c(variables[z])] > 0,1,0 )
       }
-    }else if (direction = "down"){
+    }else if (direction == "down"){
       for ( z in 1:length(variables)){
         results[c(variables[z])] <- ifelse(results[c(variables[z])] < 0,1,0 )
       }
-    }else if (direction = "mixed"){
+    }else if (direction == "mixed"){
       
       for ( j in 1:dim(predictions)[1])
       {
@@ -395,33 +392,59 @@ prediction.results <- function(data, direction, bound = "wilcoxon", variables, t
       }
       }
     } 
-  }else if (type = "prepost"){
+  }else if (type == "prepost"){
     reference <- factor(dataset$time)[1]
     
+    post <- dataset[dataset$time != reference,]
+    pre <- dataset[dataset$time == reference,]
+    results <- colMeans(as.data.frame(post[,variables] - pre[,variables]))
     
-    mutatefunc <- function (column) (
-      dataset %>%
-        arrange(id) %>%
-        group_by(id) %>%
-        mutate( !!paste0('diff.',as.name(column)) :=  !!as.name(column)-first(!!as.name(column))  ) -> dataset
+    
+    if (direction == "up"){
+      for ( z in 1:length(variables)){
+        results[c(variables[z])] <- ifelse(results[c(variables[z])] > 0,1,0 )
+      }
+    }else if (direction == "down"){
+      for ( z in 1:length(variables)){
+        results[c(variables[z])] <- ifelse(results[c(variables[z])] < 0,1,0 )
+      }
+    }else if (direction == "mixed"){
+    
+    for ( j in 1:dim(predictions)[1])
+    {
       
-    )
-    
-    tes <- function (var){
-      var - lag(var)
+      rules <- predictions[predictions[,1] ==names(results[j]),]
+      if (as.numeric(rules[2]) == 1){
+        results[j] <- ifelse(results[j] > 0, 1, 0)
+        
+      }else if (as.numeric(rules[2]) == 2){
+        
+        results[j] <- ifelse(results[j] < 0, 1, 0)
+        
+      }else if(as.numeric(rules[2]) == 3){
+        
+        if (bound == "wilcoxon")
+        {
+          split <- dataset[,c(gtvar,names(results[j]))]
+          split1 <- split[split[,gtvar]==as.numeric(reference),]
+          split2 <- split[split[,gtvar]!=as.numeric(reference),]
+          
+          results[j] <- ifelse(wilcox.test(split1[,names(results[j])],split2[,names(results[j])])$p.value < phi_0, 1,0)
+          
+          
+        } else if (bound == "normal")
+        {
+          split <- dataset[,c(gtvar,names(results[j]))]
+          split1 <- split[split[,gtvar]==as.numeric(reference),]
+          split2 <- split[split[,gtvar]!=as.numeric(reference),]
+          
+          obdiff <- mean(split2[,names(results[j])]) - mean(split1[,names(results[j])])
+          results[j] <- ifelse(obdiff >  qnorm(1-(phi_0/2)) | obdiff < qnorm(phi_0/2), 1, 0)   
+        }
+      }
     }
-    
-    
-    dataset %>%
-      group_by(id) %>%
-      arrange(id) %>%
-      summarise_at(all_of(variables), tes, na.rm = TRUE) ->zz
-    
-      mutate(idiff = )
-    
-
   }
-
+}
   
   outresults <- list(results)
   return(outresults)
