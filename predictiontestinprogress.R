@@ -17,7 +17,10 @@
 # 8) Hotelling's T^2?
 # 9)
 
-
+# Package dependnecies
+library(tidyr)
+library(dplyr)
+library(robustbase)
 
 # # Two different prediction test functions
 # - one the original with exact and approximation
@@ -216,31 +219,31 @@ variables <- c("v1", "v2" ,"v3", "v4", "v5","v6")
 colnames(data)
 
 
-prediction.weights(data = data, variables = variables, type = "group", time = "group")
+prediction.weights(data = data, variables = variables, id = "id", type = "prepost", gtvar = "time", corr = "pearson")
 
 
-prediction.weights <- function(data, variables,id, timevar, type = "group", cor = "pearson"){
+prediction.weights <- function(data, variables,id, timevar, type = "group", corr = "pearson"){
 
   if(type == "group")
   {
     dataset <- data
     endpoints <- subset(dataset, select = c(variables))
-    samplec <- cor(endpoints, method = cor)
-    weights <- rowSums(samplec^2)
+    samplec <- cor(endpoints, method = corr)
+    weights <- 1/rowSums(samplec^2)
 
   }else if( type == "prepost"){
     
     dataset <- data
-    timevar <- dataset$time
+    gtvar <- dataset[, gtvar]
     
-    if (is.null(timevar) )
+    if (is.null(gtvar) )
     {
-      stop("Provide a numeric timevar to indicate pre and post observations.")
+      stop("Provide a numeric gtvar to indicate pre and post observations.")
       
     }
-    if( length(unique(timevar)) > 2 ){
+    if( length(unique(gtvar)) > 2 ){
       
-      stop("Expecting two values for timevar.")
+      stop("Expecting two values for gtvar.")
     }
     mutatefunc <- function (column) (
       dataset %>%
@@ -256,8 +259,8 @@ prediction.weights <- function(data, variables,id, timevar, type = "group", cor 
     dataset <- mutatefunc(x)
     }
   
-    samplec <- cor( dataset[,c(paste0( "diff.",variables)) ], method = cor)
-    weights <- rowSums(samplec^2)
+    samplec <- cor( dataset[,c(paste0( "diff.",variables)) ], method = corr)
+    weights <- 1/rowSums(samplec^2)
 
   }
   outweight <- list(weights)
@@ -332,20 +335,33 @@ direction <- "mixed"
 gtvar <- "time"
 bound = "normal"
 
+
+prediction.results(data1, variables = variables,direction = "up", type = "prepost", gtvar = "time")
+
 prediction.results <- function(dataset, direction, bound = "wilcoxon", variables, type = "group", 
-                               gtvar,  phi_0 = 0.50, predictions){
+                               gtvar,  phi_0 = 0.50, predictions, location = "mean"){
   
 
   if (type == "group"){
     levels <- unique(factor(dataset[,gtvar]))
     
+    if (location == "mean")
+    {
     dataset %>%
       group_by(group) %>%
         summarise_at(all_of(variables), mean, na.rm = TRUE) -> groupmeans
+    } else if (location == "median")
+    {
+    dataset %>%
+      group_by(group) %>%
+      summarise_at(all_of(variables), median, na.rm = TRUE) -> groupmeans
+    }
     
     groupmeans <- groupmeans[order(groupmeans$group),] # Prediction calculate as Grp1-Grp2
     
     results <- groupmeans[1,variables] - groupmeans[2,variables]
+    differences <- results
+    
     if (direction == "up"){
       for ( z in 1:length(variables)){
         results[c(variables[z])] <- ifelse(results[c(variables[z])] > 0,1,0 )
@@ -397,8 +413,14 @@ prediction.results <- function(dataset, direction, bound = "wilcoxon", variables
     
     post <- dataset[dataset$time != reference,]
     pre <- dataset[dataset$time == reference,]
+    if (location == "mean")
+    {
     results <- colMeans(as.data.frame(post[,variables] - pre[,variables]))
-    
+    } else if (location == "median")
+    {
+      results <- colMedians(as.matrix(post[,variables] - pre[,variables]))
+    }
+    differences <- results
     
     if (direction == "up"){
       for ( z in 1:length(variables)){
@@ -446,7 +468,7 @@ prediction.results <- function(dataset, direction, bound = "wilcoxon", variables
   }
 }
   
-  outresults <- list(results)
+  outresults <- list(results, differences)
   return(outresults)
 
 }
@@ -454,6 +476,13 @@ prediction.results <- function(dataset, direction, bound = "wilcoxon", variables
 
 
 
+# Prediction plotting function ------------------------------------
+
+#INPUTS
+# data set forplot, with the endpoint, median difference and result of prediction
+
+variables
+result
 
 
 
