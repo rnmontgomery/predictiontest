@@ -10,16 +10,12 @@
 # 2) Prediction bootstrap - DONE
 # 3) Weights function - DONE
 # 4) Prediction results - DONE
-      # printing function
+  #- Not done, error in gtvar vs group in group_by - dependent on specific naming
 # 5) Plotting function
 # 6) Add application
+# 7) Make sure output from test works with summary()
 
-# 6) OLS function
-# 7) GLS function
-# 8) Hotelling's T^2?
-# 9)
-
-# Package dependnecies
+# Package dependencies
 library(tidyr)
 library(dplyr)
 library(robustbase)
@@ -34,6 +30,70 @@ library(robustbase)
 #   - 
 # - O'Briens ols test?
 # - Simulator for power calculations 
+
+
+# Testing data sets ----------------
+# data set 1 
+# pre-post
+
+id <- c(1:10,1:10)
+time <- (c(rep(1,10), rep(2,10)))
+v1 <- rnorm(20,0,1)
+v2 <- rnorm(20,0,1)
+v3 <- rnorm(20,0,1)
+v4 <- rnorm(20,0,1)
+v5 <- rnorm(20,0,1)
+v6 <- rnorm(20,0,1)
+
+data1 <- as.data.frame(cbind(id, time, v1, v2 ,v3, v4, v5,v6))
+
+
+# data set 2 
+# pre-post - different variable names and order
+
+identifier <- c(1:10,1:10)
+year <- (c(rep(1,10), rep(2,10)))
+e1 <- rnorm(20,0,1)
+e2 <- rnorm(20,0,1)
+m3 <- rnorm(20,0,1)
+endpoint <- rnorm(20,0,1)
+check <- rnorm(20,0,1)
+v6 <- rnorm(20,0,1)
+
+data1 <- as.data.frame(cbind(identifier, v6, e1, e2 ,endpoint, m3, check,m3, year))
+
+
+# data set 3 
+# group
+
+id <- 1:20
+group <- c(rep(1,10), rep(2,10))
+v1 <- rnorm(20,0,1)
+v2 <- rnorm(20,0,1)
+v3 <- rnorm(20,0,1)
+v4 <- rnorm(20,0,1)
+v5 <- rnorm(20,0,1)
+v6 <- rnorm(20,0,1)
+
+data3 <- as.data.frame(cbind(id, group, v1, v2 ,v3, v4, v5,v6))
+
+
+# data set 4
+# group - but with different variables and ordering
+
+MRN <- 1:20
+grp <- c(rep(1,10), rep(2,10))
+bloodpress <- rnorm(20,0,1)
+MoCA <- rnorm(20,0,1)
+eGFR <- rnorm(20,0,1)
+hyper <- rnorm(20,0,1)
+x4 <- rnorm(20,0,1)
+pmid4 <- rnorm(20,0,1)
+
+data3 <- as.data.frame(cbind(MRN, bloodpress, MoCA, eGFR ,hyper, x4, grp, pmid4))
+
+
+
 
 
 # Original prediction test ------------------------------------
@@ -152,7 +212,7 @@ return(x)
   
 }
 
-prediction.bootstrap(weights, D50, nullphi <- c(0.5,.8))
+p1 <- prediction.bootstrap(weights, D50, nullphi <- c(0.5))
 
 
 print.prediction.bootstrap <- function(x){
@@ -175,7 +235,7 @@ print.prediction.bootstrap <- function(x){
 
 print.prediction.bootstrap( prediction.bootstrap(weights, D50, nullphi <- c(0.5,.8)) )
 
-
+print.prediction.bootstrap(p1)
 
 # Weights function function ------------------------------------
 # Inputs
@@ -188,39 +248,8 @@ print.prediction.bootstrap( prediction.bootstrap(weights, D50, nullphi <- c(0.5,
 library(tidyr)
 library(dplyr)
 
-#Group example
-id <- 1:20
-group <- c(rep(1,10), rep(2,10))
-v1 <- rnorm(20,0,1)
-v2 <- rnorm(20,0,1)
-v3 <- rnorm(20,0,1)
-v4 <- rnorm(20,0,1)
-v5 <- rnorm(20,0,1)
-v6 <- rnorm(20,0,1)
 
 
-data <- as.data.frame(cbind(id, group, v1, v2 ,v3, v4, v5,v6))
-
-Group <- "group"
-variables <- c("v1", "v2" ,"v3", "v4", "v5","v6")
-colnames(data)
-
-
-
-id <- c(1:10,1:10)
-time <- (c(rep(1,10), rep(2,10)))
-v1 <- rnorm(20,0,1)
-v2 <- rnorm(20,0,1)
-v3 <- rnorm(20,0,1)
-v4 <- rnorm(20,0,1)
-v5 <- rnorm(20,0,1)
-v6 <- rnorm(20,0,1)
-
-data1 <- as.data.frame(cbind(id, time, v1, v2 ,v3, v4, v5,v6))
-
-timevar <- data$time
-variables <- c("v1", "v2" ,"v3", "v4", "v5","v6")
-colnames(data)
 
 
 prediction.weights(data = data, variables = variables, id = "id", type = "prepost", gtvar = "time", corr = "pearson")
@@ -340,12 +369,20 @@ gtvar <- "time"
 bound = "normal"
 
 
-prediction.results(data1, variables = variables,direction = "up", type = "prepost", gtvar = "time")[1]
+dataz <- data
+colnames(dataz) <- c("id", "grp", "e1", "e2", "e3", "e4", "e5", "e6")
+varz <- c( "e1", "e2", "e3", "e4", "e5", "e6")
+variables <- varz
+gtvar <- "grp"
+
+dataset <- dataz
+
+prediction.results(data1, variables = varaibles,direction = "up", type = "time", 
+                   gtvar = "time")
 
 prediction.results <- function(dataset, direction, bound = "wilcoxon", variables, type = "group", 
                                gtvar,  phi_0 = 0.50, predictions, location = "mean"){
   
-
   if (type == "group"){
     levels <- unique(factor(dataset[,gtvar]))
     
@@ -360,7 +397,6 @@ prediction.results <- function(dataset, direction, bound = "wilcoxon", variables
       group_by(group) %>%
       summarise_at(all_of(variables), median, na.rm = TRUE) -> groupmeans
     }
-    
     groupmeans <- groupmeans[order(groupmeans$group),] # Prediction calculate as Grp1-Grp2
     
     results <- groupmeans[1,variables] - groupmeans[2,variables]
@@ -369,10 +405,12 @@ prediction.results <- function(dataset, direction, bound = "wilcoxon", variables
     if (direction == "up"){
       for ( z in 1:length(variables)){
         results[c(variables[z])] <- ifelse(results[c(variables[z])] > 0,1,0 )
+        predictions <- rep(phi_0, length(variables))
       }
     }else if (direction == "down"){
       for ( z in 1:length(variables)){
         results[c(variables[z])] <- ifelse(results[c(variables[z])] < 0,1,0 )
+        predictions <- rep(phi_0, length(variables))
       }
     }else if (direction == "mixed"){
       
@@ -478,35 +516,51 @@ prediction.results <- function(dataset, direction, bound = "wilcoxon", variables
 }
 
 
-# Print results function ----------------------------------------------
-
-print.prediction.test <- function(x){
-  cat("\n\t\tResults for the Prediction Test")
-  
-  cat("\n\nOf the", paste(x$m), " endpoints of interest,", paste(x$correct), "were correctly predicted.")
-  if (x$type == 1){
-    cat("\nCalculated using the normal approximation:")
-  } else if (x$type == 2){
-    cat("\nCalculated using the exact distribution:")
-  }
-  cat("\n----------------------------------------------------------------")
-  cat("\nTm:", paste(format(x$statistic,digits=4)), 
-      "\t Null hypothesized", paste("\U03D5:"), paste(format(x$null.value)),
-      "\t p.value:", paste(format(x$p.value, digits = 4)))
-}
-
-print.prediction.test( pred1)
-
-
-
 
 # Prediction plotting function ------------------------------------
 
 #INPUTS
-# data set forplot, with the endpoint, median difference and result of prediction
+# Data set forplot, with the endpoint, median difference and result of prediction
+variables <- c("v1", "v2", "v3", "v4", "v5")
 
-variables
-result
+results <- prediction.results(data, variables = variables,direction = "up", type = "group", 
+                   gtvar = "group")
+
+unlist(results[1])
+
+
+prediction.plot <- function(predictionresults = results){
+  
+  end <- colnames(results[[2]])
+  diff <- (unlist(results[2]))
+  resulted <- (unlist(results[1]))
+
+  forplot <- as.data.frame(   cbind(end, diff  , resulted  )   )
+  forplot$diff <- as.numeric(as.character(forplot$diff))
+  forplot$resulted <- as.numeric(as.character(forplot$resulted))
+  
+  
+  forplot1 <- ggplot(data = forplot, aes(end, diff, fill = factor(resulted)   )  ) +
+    geom_bar(aes(x = end, y = diff),stat='identity') +
+    scale_y_continuous(limits=c(-0.5,0.75)) +
+    geom_bar(forplot, mapping = aes(end) ,alpha=0, size=1, color="black", stat='identity')+
+    theme_classic() + 
+    theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust=1)) +
+    labs(title = "Differences across endpoints", x = "", y = "Standardized median difference", fill = "Prediction\nresults") +
+    scale_fill_manual(labels = c("Incorrect", "Correct"), values = c("White", "Black")) + 
+    theme(plot.title = element_text(hjust = 0.5)) 
+  
+  
+  +
+    geom_segment(aes(x = 8.5, y = 0.46, xend = 9.5, yend = 0.46),size=1, linetype = 3)+
+    geom_segment(aes(x = 8.5, y = -0.46, xend = 9.5, yend = -0.46),size=1,  linetype = 3)+
+    geom_point(aes(x=9, y=0), shape = 1, fill = "white",size = 6, stroke = 1)
+  
+  class(forplot$end)
+  
+  output(forplot1)
+  
+}
 
 
 
